@@ -1,6 +1,9 @@
 #ifndef SPRITE_H
 #define SPRITE_H
 
+#include <array>
+#include <cstddef>
+
 #include "basic_transform.h"
 #include <SFML/Graphics.hpp>
 #include <SFML/System.hpp>
@@ -8,17 +11,22 @@
 class Sprite {  // could derive from sf::Drawable if you're willing to pay for a vptr, but not
                 // necessary.
 public:
-    Sprite(const sf::Texture& texture) {
-        // TODO
-    }
+    Sprite(const sf::Texture& texture)
+        : Sprite(texture, {0.f, 0.f}, sf::Vector2f(texture.getSize())) {}
 
     Sprite(const sf::Texture& texture, const sf::Vector2f& texMinPoint,
-           const sf::Vector2f& texMaxPoint) {
-        // TODO
-    }
+           const sf::Vector2f& texMaxPoint)
+        : mTexture(&texture),
+          mVertexArray(sf::PrimitiveType::Triangles, 6),
+          mMinPointTex(texMinPoint),
+          mMaxPointTex(texMaxPoint),
+          mOrigin(0.f, 0.f) {}
 
     void draw(sf::RenderTarget& target, sf::RenderStates states) const {
-        // TODO
+        if (!mTexture) return;
+        recomputeVertexArray();
+        states.texture = mTexture;
+        target.draw(mVertexArray, states);
     }
 
     sf::Vector2f& position() { return mTransform.translation; }
@@ -29,17 +37,21 @@ public:
     const sf::Vector2f& origin() const { return mOrigin; }
 
 private:
-    // It may help you to write this, which is an array of 6 vertices:
-    //   - the first 3 correspond to the vertices of the top-left triangle of a "default rectangle"
-    //     ranging from [0, 1] in both dimensions.
-    //   - the next 3 correspond to the vertices of the bottom-right triangle. of the default
-    //     rectangle.
-    static constexpr std::array<sf::Vector2f, 6> DEFAULT_VERTICES = {};  // TODO
+    static constexpr std::array<sf::Vector2f, 6> DEFAULT_VERTICES = {{
+        {0.f, 0.f}, {0.f, 1.f}, {1.f, 0.f},  
+        {0.f, 1.f}, {1.f, 1.f}, {1.f, 0.f}   
+    }};
 
     // if mTexture is valid, recomputes the positions and coords of sf::Vertex for each
     // of 6 possible entries in mVertexArray.
     void recomputeVertexArray() const {
-        // TODO
+        if (!mTexture) return;
+        const sf::Vector2f texSize = mMaxPointTex - mMinPointTex;
+        for (std::size_t i = 0; i < DEFAULT_VERTICES.size(); ++i) {
+            const sf::Vector2f local = DEFAULT_VERTICES[i] * texSize;  // size in texture pixels
+            mVertexArray[i].texCoords = mMinPointTex + local;
+            mVertexArray[i].position = mTransform.applyPoint(local - mOrigin);
+        }
     }
 
     const sf::Texture* mTexture;
